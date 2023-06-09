@@ -11,49 +11,45 @@
  * - La console (devtools) correspondant au chrome du téléphone va s'ouvrir :)
  */
 
-import { Subject, tap, mergeMap, of } from "rxjs"
-
-const LibBleGap  = require("../lib/lib.ble.gap.min.js")
-const LibGraph   = require("../lib/lib.graph.min.js")
-const LibDate    = require("../lib/esp.lib.date.min.js")
-const LibStorage = require("../lib/lib.storage.min.js")
+const LibBleGap = require("../lib/lib.ble.gap.min.js")
+const LibFlux   = require("../lib/lib.flux.min.js")
 
 console.log("Bonjour :-)")
 
-var buttonScanning  = document.getElementById("listening")
+const buttonScanning = document.getElementById("listening")
+const linkCsv        = document.getElementById("csv")
+
+const temperature = {
+  buttonDownload     : document.querySelector('div.temperature input[name="download"]'),
+  buttonClearGraph   : document.querySelector('div.temperature input[name="clearGraph"]'),
+  buttonRefreshGraph : document.querySelector('div.temperature input[name="refreshGraph"]'),
+  buttonClearStorage : document.querySelector('div.temperature input[name="clearStorage"]'),
+  checkboxLive       : document.querySelector('div.temperature input[name="live"]'),
+}
+
+const pressure = {
+  buttonDownload     : document.querySelector('div.pressure input[name="download"]'),
+  buttonClearGraph   : document.querySelector('div.pressure input[name="clearGraph"]'),
+  buttonRefreshGraph : document.querySelector('div.pressure input[name="refreshGraph"]'),
+  buttonClearStorage : document.querySelector('div.pressure input[name="clearStorage"]'),
+  checkboxLive       : document.querySelector('div.pressure input[name="live"]'),
+}
+
 let scanning = false
 
-var buttonDownloadTemperature = document.getElementById("downloadTemperature")
-const subjectTemperature = new Subject()
-const graphTemperature   = new LibGraph("graphTemperature", "Température (°C)")
-graphTemperature.display()
-let dataTemperature = LibStorage.loadObject("temperature")
+const fluxTemperature = new LibFlux({
+  id: "temperature",
+  title: "Température (°C)",
+})
 
-var buttonDownloadPressure = document.getElementById("downloadPressure")
-const subjectPressure = new Subject()
-const graphPressure   = new LibGraph("graphPressure", "Pression (bars)")
-graphPressure.display()
-let dataPressure = LibStorage.loadObject("pressure")
+const fluxPressure = new LibFlux({
+  id: "pressure",
+  title: "Pressure (bars)",
+  graphValueformatter: (v) => v / 14.5038, //psi -> bars
+})
 
-/**
- *
- */
-const psi2bar = function(PsiValue){
-  return PsiValue / 14.5038
-}
-
-/**
- *
- */
-const exportData2Csv = function(Options){
-  let href = `data:text/csv,${Options.header}%0A`
-  for(const item of Options.list){
-    href += `${Options.cb(item)}%0A`
-  }
-  Options.a.href = href
-  Options.a.download = Options.filename
-  Options.a.click()
-}
+fluxTemperature.refreshGraph()
+fluxPressure.refreshGraph()
 
 /**
 *
@@ -75,93 +71,30 @@ buttonScanning.addEventListener("click", async Event => {
      * Listin BLE advertising and convert to rxjs streams
      */
     LibBleGap.onAdvertisement(DataView => {
-      subjectTemperature.next(
-        DataView.getUint8(0) //rawTemperature
-      )
-      subjectPressure.next(
-        DataView.getUint8(1) //rawPressure
-      )
+      if (temperature.checkboxLive.checked){
+        fluxTemperature.pushValue(DataView.getUint8(0)) //rawTemperature
+      }
+      if (pressure.checkboxLive.checked){
+        fluxPressure.pushValue(DataView.getUint8(1)) //rawPressure
+      }
     })
 
     buttonScanning.value = "Stop listening"
   }
 })
 
-
-const saveTemperature = function(rawTemperature){
-  const item = {
-    ts   : Date.now(),
-    value: rawTemperature,
-  }
-  dataTemperature.push(item)
-  LibStorage.saveObject("temperature", dataTemperature)
-  return of(item)
-}
-
-const displayTemperature = function(Item){
-  graphTemperature.addData({
-    label: LibDate.time(Item.ts),
-    value: Item.value,
-  })
-  return of(Item)
-}
-
-const savePressure = function(rawPressure){
-  const item = {
-    ts   : Date.now(),
-    value: rawPressure,
-  }
-  dataPressure.push(item)
-  LibStorage.saveObject("pressure", dataPressure)
-  return of(item)
-}
-
-const displayPressure = function(Item){
-  graphPressure.addData({
-    label: LibDate.time(Item.ts),
-    value: psi2bar(Item.value),
-  })
-  return of(Item)
-}
-
-subjectTemperature
-  .pipe(
-    //tap((rawTemperature)      => console.log("rawTemperature", rawTemperature)),
-    mergeMap((rawTemperature) => saveTemperature(rawTemperature)),
-    mergeMap((item)           => displayTemperature(item)),
-  )
-  .subscribe()
-
-subjectPressure
-  .pipe(
-    //tap((rawPressure)      => console.log("rawPressure", rawPressure)),
-    mergeMap((rawPressure) => savePressure(rawPressure)),
-    mergeMap((item)        => displayPressure(item)),
-  )
-  .subscribe()
-
-buttonDownloadTemperature.addEventListener("click", async Event => {
-  const list = LibStorage.loadObject("temperature")
-  exportData2Csv({
-    a: document.getElementById("csv"),                       //HTML element
-    list,                                                    //Data list
-    filename: `${LibDate.dateFilename(list[0].ts)}_${LibDate.timeFilename(list[0].ts)}_temperature.csv`,
-    header: "ts%2Ctemperature",                              //CSV header line
-    cb: (item) => `${item.ts}%2C${item.value}`,              //Convert item to CSV line
-  })
-  dataTemperature = []
-  LibStorage.saveObject("temperature", dataTemperature)
+temperature.buttonDownload.addEventListener("click", async Event => fluxTemperature.downloadCsv(linkCsv))
+temperature.buttonClearGraph.addEventListener("click", async Event => fluxTemperature.clearGraph())
+temperature.buttonRefreshGraph.addEventListener("click", async Event => fluxTemperature.refreshGraph())
+temperature.buttonClearStorage.addEventListener("click", async Event => {
+  fluxTemperature.clearStorage()
+  fluxTemperature.clearGraph()
 })
 
-buttonDownloadPressure.addEventListener("click", async Event => {
-  const list = LibStorage.loadObject("pressure")
-  exportData2Csv({
-    a: document.getElementById("csv"),                    //HTML element
-    list,                                                 //Data list
-    filename: `${LibDate.dateFilename(list[0].ts)}_${LibDate.timeFilename(list[0].ts)}_pressure.csv`,
-    header: "ts%2Cpressure",                              //CSV header line
-    cb: (item) => `${item.ts}%2C${item.value}`,           //Convert item to CSV line
-  })
-  dataPressure = []
-  LibStorage.saveObject("pressure", dataPressure)
+pressure.buttonDownload.addEventListener("click", async Event => fluxPressure.downloadCsv(linkCsv))
+pressure.buttonClearGraph.addEventListener("click", async Event => fluxPressure.clearGraph())
+pressure.buttonRefreshGraph.addEventListener("click", async Event => fluxPressure.refreshGraph())
+pressure.buttonClearStorage.addEventListener("click", async Event => {
+  fluxPressure.clearStorage()
+  fluxPressure.clearGraph()
 })

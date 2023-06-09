@@ -4,19 +4,75 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
   </head>
+  <style>
+    div.row{
+      display: flex;
+    }
+
+    div.graph{
+      width: 600px;
+      /*border: 1px black solid;*/
+    }
+
+    div.options{
+      /*border: 1px #F0F0F0 solid;*/
+      width: 200px;
+    }
+  </style>
   <body>
     <h1>Télémétrie MX5</h1>
     <div>
       <input type="button" id="listening" value="Listening">
     </div>
-    <div style="width: 600px">
-      <canvas id="graphTemperature"></canvas>
-      <input id="downloadTemperature" type="button" value="Download">
+
+    <div class="row temperature">
+      <div class="graph">
+        <canvas id="graphTemperature"></canvas>
+      </div>
+      <div class="options">
+        <div>
+          Live <input name="live" type="checkbox" checked>
+        </div>
+        <hr>
+        <div>
+          <input name="clearGraph" type="button" value="Clear graph">
+          <input name="refreshGraph" type="button" value="Refresh graph">
+        </div>
+        <hr>
+        <div>
+          <input name="clearStorage" type="button" value="Clear storage">
+        </div>
+        <hr>
+        <div>
+          <input name="download" type="button" value="Download CSV">
+        </div>
+      </div>
     </div>
-    <div style="width: 600px">
-      <canvas id="graphPressure"></canvas>
-      <input id="downloadPressure" type="button" value="Download">
+
+    <div class="row pressure">
+      <div class="graph">
+        <canvas id="graphPressure"></canvas>
+      </div>
+      <div class="options">
+        <div>
+          Live <input name="live" type="checkbox" checked>
+        </div>
+        <hr>
+        <div>
+          <input name="clearGraph" type="button" value="Clear graph">
+          <input name="refreshGraph" type="button" value="Refresh graph">
+        </div>
+        <hr>
+        <div>
+          <input name="clearStorage" type="button" value="Clear storage">
+        </div>
+        <hr>
+        <div>
+          <input name="download" type="button" value="Download CSV">
+        </div>
+      </div>
     </div>
+
     <a id="csv" style="display: none">CSV</a>
   </body>
 </html>
