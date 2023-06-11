@@ -12,7 +12,8 @@
  */
 
 const LibBleGap = require("../lib/lib.ble.gap.min.js")
-const LibFlux   = require("../lib/lib.flux.min.js")
+
+import Flux from "../lib/lib.flux.min.mjs"
 
 console.log("Bonjour :-)")
 
@@ -20,36 +21,33 @@ const buttonScanning = document.getElementById("listening")
 const linkCsv        = document.getElementById("csv")
 
 const temperature = {
+  canvas             : document.querySelector('div.temperature canvas[name="graph"]'),
   buttonDownload     : document.querySelector('div.temperature input[name="download"]'),
-  buttonClearGraph   : document.querySelector('div.temperature input[name="clearGraph"]'),
-  buttonRefreshGraph : document.querySelector('div.temperature input[name="refreshGraph"]'),
   buttonClearStorage : document.querySelector('div.temperature input[name="clearStorage"]'),
-  checkboxLive       : document.querySelector('div.temperature input[name="live"]'),
+  confirm            : false
 }
 
 const pressure = {
+  canvas             : document.querySelector('div.pressure canvas[name="graph"]'),
   buttonDownload     : document.querySelector('div.pressure input[name="download"]'),
-  buttonClearGraph   : document.querySelector('div.pressure input[name="clearGraph"]'),
-  buttonRefreshGraph : document.querySelector('div.pressure input[name="refreshGraph"]'),
   buttonClearStorage : document.querySelector('div.pressure input[name="clearStorage"]'),
-  checkboxLive       : document.querySelector('div.pressure input[name="live"]'),
+  confirm            : false
 }
 
 let scanning = false
 
-const fluxTemperature = new LibFlux({
+const fluxTemperature = new Flux({
   id: "temperature",
-  title: "Température (°C)",
+  htmlCanvasElement: temperature.canvas,
+  title: "Temperature (°C)",
 })
 
-const fluxPressure = new LibFlux({
+const fluxPressure = new Flux({
   id: "pressure",
+  htmlCanvasElement: pressure.canvas,
   title: "Pressure (bars)",
   graphValueformatter: (v) => v / 14.5038, //psi -> bars
 })
-
-fluxTemperature.refreshGraph()
-fluxPressure.refreshGraph()
 
 /**
 *
@@ -71,30 +69,44 @@ buttonScanning.addEventListener("click", async Event => {
      * Listin BLE advertising and convert to rxjs streams
      */
     LibBleGap.onAdvertisement(DataView => {
-      if (temperature.checkboxLive.checked){
-        fluxTemperature.pushValue(DataView.getUint8(0)) //rawTemperature
-      }
-      if (pressure.checkboxLive.checked){
-        fluxPressure.pushValue(DataView.getUint8(1)) //rawPressure
-      }
+      fluxTemperature.pushValue(DataView.getUint8(0)) //rawTemperature
+      fluxPressure.pushValue(DataView.getUint8(1)) //rawPressure
     })
 
     buttonScanning.value = "Stop listening"
   }
 })
 
-temperature.buttonDownload.addEventListener("click", async Event => fluxTemperature.downloadCsv(linkCsv))
-temperature.buttonClearGraph.addEventListener("click", async Event => fluxTemperature.clearGraph())
-temperature.buttonRefreshGraph.addEventListener("click", async Event => fluxTemperature.refreshGraph())
-temperature.buttonClearStorage.addEventListener("click", async Event => {
-  fluxTemperature.clearStorage()
+temperature.buttonDownload.addEventListener("click", async Event => {
+  fluxTemperature.downloadCsv(linkCsv)
   fluxTemperature.clearGraph()
 })
 
-pressure.buttonDownload.addEventListener("click", async Event => fluxPressure.downloadCsv(linkCsv))
-pressure.buttonClearGraph.addEventListener("click", async Event => fluxPressure.clearGraph())
-pressure.buttonRefreshGraph.addEventListener("click", async Event => fluxPressure.refreshGraph())
-pressure.buttonClearStorage.addEventListener("click", async Event => {
-  fluxPressure.clearStorage()
+pressure.buttonDownload.addEventListener("click", async Event => {
+  fluxPressure.downloadCsv(linkCsv)
   fluxPressure.clearGraph()
+})
+
+temperature.buttonClearStorage.addEventListener("click", async Event => {
+  if (temperature.confirm){
+    fluxTemperature.clearStorage()
+    fluxTemperature.clearGraph()
+    temperature.buttonClearStorage.value = "Clear storage"
+    temperature.confirm = false
+  }else{
+    temperature.buttonClearStorage.value = "Sure ?"
+    temperature.confirm = true
+  }
+})
+
+pressure.buttonClearStorage.addEventListener("click", async Event => {
+  if (pressure.confirm){
+    fluxPressure.clearStorage()
+    fluxPressure.clearGraph()
+    pressure.buttonClearStorage.value = "Clear storage"
+    pressure.confirm = false
+  }else{
+    pressure.buttonClearStorage.value = "Sure ?"
+    pressure.confirm = true
+  }
 })
